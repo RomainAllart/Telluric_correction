@@ -878,9 +878,8 @@ def Run_ATC(Input,options):
 def Run_ATC_files(Input,options):
     for i in range(len(Input)):
         output_ATC= Run_ATC(Input[i],options)
-        save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type='DRS',     save_location=options[2])
-        save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type='Extended',save_location=options[2])
-        save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type='Telluric',save_location=options[2])
+        for save_type in options[3]:
+            save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type=save_type, save_location=options[2])
     return
 
 

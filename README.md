@@ -33,8 +33,8 @@ Users have to clone the repository to their personal directory and make sure tha
 - `molecules` can either be `['H2O','O2']` or `['H2O,'O2','CO2','CH4']` respectively for ESPRESSO and NIRPS. These molecules are the main absorber in their respective spectral range.
 - `save_path` is the output folder to save the data.
 - `save_options` is an array that can contains either or all of the following keywords: `'DRS'`, `'Extended'` and `'Telluric'`. 
-  - `'DRS'` creates a `S2D_BLAZE_A_CORR.fits` file where the spectrum is telluric corrected. 
-  - `'Extended'` creates a `S2D_BLAZE_A_CORR_extended.fits` file that contain the uncorrected spectrum, the corrected spectrum and the telluric spectrum. 
+  - `'DRS'` creates a `S2D_BLAZE_A_TELL_CORR.fits` file where the spectrum is telluric corrected. 
+  - `'Extended'` creates a `S2D_BLAZE_A_TELL_CORR_EXTENDED.fits` file that contain the uncorrected spectrum, the corrected spectrum and the telluric spectrum. 
   - `'Telluric'` creates a `S2D_BLAZE_A_TELL.fits` file with the telluric spectrum alone. 
   - As an additionnal note, the telluric corrected spectra are set to 0 when the telluric lines have an absorption larger 90% to avoid numerical effect.
 - By default the telluric correction uses multiprocessing to split the files to correct on the number of cores available - 2.

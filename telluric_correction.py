@@ -623,15 +623,15 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
 
     if save_type == 'DRS':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_CORR.fits')
-        file = save_location+path.split('/')[-1][:-5]+'_CORR.fits'        
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_TELL_CORR.fits')
+        file = save_location+path.split('/')[-1][:-5]+'_TELL_CORR.fits'        
         hdr = fits.Header()
         hdr['EXTNAME']='SCIDATA'
         fits.update( file, np.where(telluric>0.1,flux_corr,0),1,header=hdr)
         
     elif save_type == 'Extended':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_CORR_extended.fits')
-        file = save_location+path.split('/')[-1][:-5]+'_CORR_extended.fits'        
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_TELL_CORR_EXTENDED.fits')
+        file = save_location+path.split('/')[-1][:-5]+'_TELL_CORR_EXTENDED.fits'        
         hdr = fits.Header()
         hdr['EXTNAME']='SCIDATA_CORR'
         fits.append( file, np.where(telluric>0.1,flux_corr,0) ,header=hdr)

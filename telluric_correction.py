@@ -641,14 +641,14 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         fits.append( file, telluric,header=hdr) 
         
     elif save_type == 'Telluric':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_TELL.fits')
-        file = fits.open(save_location+path.split('/')[-1][:-5]+'_TELL.fits')
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-13]+'_A_TELL.fits')
+        file = fits.open(save_location+path.split('/')[-1][:-13]+'_A_TELL.fits')
         file.pop('SCIDATA')
         file.pop('ERRDATA')
-        file.writeto(save_location+path.split('/')[-1][:-5]+'_TELL.fits',overwrite=True)
+        file.writeto(save_location+path.split('/')[-1][:-13]+'_A_TELL.fits',overwrite=True)
         file.close()
         
-        file = save_location+path.split('/')[-1][:-5]+'_TELL.fits'
+        file = save_location+path.split('/')[-1][:-13]+'_A_TELL.fits'
         hdr = fits.Header()
         hdr['EXTNAME']='TELLURIC'
         fits.append( file, telluric,header=hdr) 

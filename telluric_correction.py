@@ -96,7 +96,7 @@ def fits2wave(file_or_header):
 
     # project polynomial coefficiels
     wavesol = [np.polyval(wave_poly[i][::-1], np.arange(npix)) for i in range(nord)]
-
+    
     # return wave grid
     return np.array(wavesol)
 
@@ -617,7 +617,9 @@ def open_resolution_map(instrument,time_science,ins_mode,bin_x=2):
                 period = 'HE_COMM7'        
 
         print(period)
-    return instrumental_function[1].data
+    resolution_map=instrumental_function[1].data
+    instrumental_function.close()
+    return resolution_map
 
 def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecules,save_type,save_location):
 
@@ -641,14 +643,14 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         fits.append( file, telluric,header=hdr) 
         
     elif save_type == 'Telluric':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-15]+'_TELL_A.fits')
-        file = fits.open(save_location+path.split('/')[-1][:-15]+'_TELL_A.fits')
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-13]+'_TELL_A.fits')
+        file = fits.open(save_location+path.split('/')[-1][:-13]+'_TELL_A.fits')
         file.pop('SCIDATA')
         file.pop('ERRDATA')
-        file.writeto(save_location+path.split('/')[-1][:-15]+'_TELL_A.fits',overwrite=True)
+        file.writeto(save_location+path.split('/')[-1][:-13]+'_TELL_A.fits',overwrite=True)
         file.close()
         
-        file = save_location+path.split('/')[-1][:-15]+'_TELL_A.fits'
+        file = save_location+path.split('/')[-1][:-13]+'_TELL_A.fits'
         hdr = fits.Header()
         hdr['EXTNAME']='TELLURIC'
         fits.append( file, telluric,header=hdr) 
@@ -721,6 +723,8 @@ def Run_ATC(Input,options):
         hitran_database_lines_model_molecules[m] = static_file_lines_fit[1].data        
         hitran_database_lines_fit_molecules[m]   = static_file_lines_fit[2].data 
         
+        static_file_full_range.close()
+        static_file_lines_fit.close()
         if molecules[m]=='H2O':
             N_x_molecules[m]   = 3.3427274952610645e+22      # [molecules*cm^-3]
             M_mol_molecules[m] = 18.01528                    # [g*mol^-1]
@@ -840,6 +844,7 @@ def Run_ATC(Input,options):
         #CCF grid
         rvs= np.arange(-40,40.001,1.0)  
 
+    data.close()
     
     #fit by molecules
     result_fit_molecules=np.empty(len(molecules),dtype=object)
@@ -871,7 +876,6 @@ def Run_ATC(Input,options):
     #Apply telluric correction to the full spectrum
     telluric_spectrum = compute_telluric_model(result_fit_molecules,molecules,M_mol_molecules,N_x_molecules,hitran_database_full_range_molecules,qt_file_molecules,data_wave,np.arange(len(data_wave)),Resolution_instrumental_map,instrument)
     
-    data.close()
     return Input,instrument,data_flux,data_flux_err,telluric_spectrum,result_fit_molecules,molecules
 
 

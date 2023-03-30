@@ -623,15 +623,15 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
 
     if save_type == 'DRS':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_TELL_CORR.fits')
-        file = save_location+path.split('/')[-1][:-5]+'_TELL_CORR.fits'        
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-7]+'_TELL_CORR_A.fits')
+        file = save_location+path.split('/')[-1][:-7]+'_TELL_CORR_A.fits'        
         hdr = fits.Header()
         hdr['EXTNAME']='SCIDATA'
         fits.update( file, np.where(telluric>0.1,flux_corr,0),1,header=hdr)
         
     elif save_type == 'Extended':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-5]+'_TELL_CORR_EXTENDED.fits')
-        file = save_location+path.split('/')[-1][:-5]+'_TELL_CORR_EXTENDED.fits'        
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-7]+'_TELL_CORR_EXTENDED_A.fits')
+        file = save_location+path.split('/')[-1][:-7]+'_TELL_CORR_EXTENDED_A.fits'        
         hdr = fits.Header()
         hdr['EXTNAME']='SCIDATA_CORR'
         fits.append( file, np.where(telluric>0.1,flux_corr,0) ,header=hdr)
@@ -641,14 +641,14 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         fits.append( file, telluric,header=hdr) 
         
     elif save_type == 'Telluric':
-        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-13]+'_A_TELL.fits')
-        file = fits.open(save_location+path.split('/')[-1][:-13]+'_A_TELL.fits')
+        os.system('cp '+path+' '+save_location+path.split('/')[-1][:-15]+'_TELL_A.fits')
+        file = fits.open(save_location+path.split('/')[-1][:-15]+'_TELL_A.fits')
         file.pop('SCIDATA')
         file.pop('ERRDATA')
-        file.writeto(save_location+path.split('/')[-1][:-13]+'_A_TELL.fits',overwrite=True)
+        file.writeto(save_location+path.split('/')[-1][:-15]+'_TELL_A.fits',overwrite=True)
         file.close()
         
-        file = save_location+path.split('/')[-1][:-13]+'_A_TELL.fits'
+        file = save_location+path.split('/')[-1][:-15]+'_TELL_A.fits'
         hdr = fits.Header()
         hdr['EXTNAME']='TELLURIC'
         fits.append( file, telluric,header=hdr) 

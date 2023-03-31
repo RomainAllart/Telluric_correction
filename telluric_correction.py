@@ -633,7 +633,7 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
         header_files = fits.open(file)
         # Modify HIERARCH ESO PRO CATG
-        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_A'
+        header_files[0].header['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_A'
 
         
     elif save_type == 'Extended':
@@ -649,7 +649,7 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
         header_files = fits.open(file)
         # Modify HIERARCH ESO PRO CATG
-        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_EXTENDED_A'
+        header_files[0].header['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_EXTENDED_A'
         
     elif save_type == 'Telluric':
         os.system('cp '+path+' '+save_location+path.split('/')[-1][:-13]+'_TELL_A.fits')
@@ -666,7 +666,7 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
         header_files = fits.open(file)
         # Modify HIERARCH ESO PRO CATG
-        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_A'
+        header_files[0].header['HIERARCH ESO PRO CATG'] = 'S2D_TELL_A'
 
     
     for M in range(len(molecules)):

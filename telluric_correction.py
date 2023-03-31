@@ -630,6 +630,11 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         hdr = fits.Header()
         hdr['EXTNAME']='SCIDATA'
         fits.update( file, np.where(telluric>0.1,flux_corr,0),1,header=hdr)
+
+        header_files = fits.open(file)
+        # Modify HIERARCH ESO PRO CATG
+        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_A'
+
         
     elif save_type == 'Extended':
         os.system('cp '+path+' '+save_location+path.split('/')[-1][:-7]+'_TELL_CORR_EXTENDED_A.fits')
@@ -641,6 +646,10 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         fits.append( file, flux_err_corr,header=hdr)
         hdr['EXTNAME']='TELLURIC'
         fits.append( file, telluric,header=hdr) 
+
+        header_files = fits.open(file)
+        # Modify HIERARCH ESO PRO CATG
+        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_CORR_EXTENDED_A'
         
     elif save_type == 'Telluric':
         os.system('cp '+path+' '+save_location+path.split('/')[-1][:-13]+'_TELL_A.fits')
@@ -655,7 +664,10 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
         hdr['EXTNAME']='TELLURIC'
         fits.append( file, telluric,header=hdr) 
 
-    header_files = fits.open(file)
+        header_files = fits.open(file)
+        # Modify HIERARCH ESO PRO CATG
+        header_files['HIERARCH ESO PRO CATG'] = 'S2D_TELL_A'
+
     
     for M in range(len(molecules)):
         header_files[0].header['ESO QC TELL '+ molecules[M] +' IWV']          = result_fit[M].params['PWV_w_airmass'].value*10 #to put in mm

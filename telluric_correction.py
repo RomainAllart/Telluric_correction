@@ -13,9 +13,13 @@ from multiprocessing import Pool
 from lmfit import minimize, Parameters, report_fit, fit_report
 import time
 from scipy.special import wofz
+from scipy.interpolate import interp1d
 from lmfit import Model
 from functools import partial
 import warnings
+import fast_convolution as fast_conv
+# from scipy import constants
+import numexpr as ne
 warnings.filterwarnings("ignore")
 
 
@@ -106,6 +110,36 @@ def voigt(x, HWHM=1, gamma=1, center=0):
     z = (x - center + 1j * gamma) / (sigma * np.sqrt(2.))
     V = wofz(z) / (np.sqrt(2. * np.pi) * sigma)
     return np.real(V)
+
+
+
+
+def supergauss(x, ew, expo):
+    """
+    :param x:
+    :param fwhm:
+    :param expo:
+    :return:
+
+    0.5 = exp(-0.5*((fwhm/2)/ew)^expo)
+    np.log(0.5) = -0.5*((fwhm/2)/ew)^expo
+    2*np.log(2) = ((fwhm/2)/ew)^expo
+    """
+
+    # ew = (fwhm/2)/(2*np.log(2))**(1/expo)
+    # return np.exp(-0.5*np.abs(x/ew)**expo)
+    
+    #Expression d'Etienne original mais avec une erreur
+    # str_exp = 'exp(-0.5 * abs(x / (fwhm/2)/(2*log(2))**(1/expo)) ** expo)' 
+    
+    #Expression corrige brute
+    # str_exp = 'exp(-0.5 * abs(x / ((fwhm/2)/(2*log(2))**(1/expo))) ** expo)'
+    
+    #Expression corrige avec la logique de depary
+    str_exp = 'exp(-0.5 * abs(x / ew) ** expo)'
+
+
+    return ne.evaluate(str_exp)
 
 def compute_CCF(l,spe,mask_ll,mask_W,RV_table,bin_width,normalize,excluded_ll,excluded_range,instrument='HARPS',rescale=0):
 
@@ -209,6 +243,7 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
     R     = 3000000 # model resolution
 
     c     = 299792458.0                 # [m*s^-1]
+    c_km_s = c/1000
     NA    = 6.02214086e+23              # [mol^-1]
     k_b   = 1.3806503e-23               # [J*K^-1] = [kg*m^2*s^-2]
     c2    = 1.43880285                  # c*h/k in [cm*K]
@@ -313,26 +348,88 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
             gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
             telluric_spectrum_conv = np.convolve(telluric_spectrum,gaussian_psf_norm,mode='same')             
         else:
-            step_convolution = 150
-            data_wave_temp = wave
-            tell_temp= telluric_spectrum
-            telluric_spectrum_conv = 1. * np.ones(len(data_wave_temp))
-            for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
-                if tell_temp[p]<0.999:
-                    if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
-                        index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
-                    else:
-                        index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
-                    resolution_pixel    = Resolution_map[Order,index_pixel]
-                    fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
-                    sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
-                    wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-                    flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-                    gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
-                    gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
-                    telluric_spectrum_conv[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
-                else:
-                    telluric_spectrum_conv[p] = tell_temp[p]
+
+
+            spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
+            f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+
+            fwhm = c_km_s/f(wave)
+            expo = np.ones(len(fwhm))*2.0
+
+            shape0 = spectrum.shape
+
+            fwhm = fwhm.ravel()
+            expo = expo.ravel()
+            data_wave_temp = wave.ravel()
+            spectrum = spectrum.ravel()
+
+            ww = np.zeros_like(spectrum)
+            sp2 = np.zeros_like(spectrum)
+
+            range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
+            range_scan = int(np.ceil(range_scan))
+            
+            ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
+
+            for offset in range(-range_scan,range_scan):
+                dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
+                w = supergauss(dv, ew, expo)
+                sp2+=np.roll(spectrum,offset)*w
+                ww+=w
+
+            sp2/=ww
+            
+            telluric_spectrum_conv = sp2.reshape(shape0)
+
+
+            #Antoine
+            # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+            # def fct_ker(w, w_center):
+            #     res = f(w_center)                
+            #     fwhm = w_center/res
+            #     sigma = fast_conv.fwhm2sigma(fwhm)
+
+            #     return fast_conv.gaussians(w, w_center, sigma)
+
+            # idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
+            
+            # data_wave_temp = wave[idx_pad:-idx_pad]
+
+            
+
+            # idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
+            # offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
+            # idx = idx_grid[None, :] + offset_idx[:, None]
+            # grid_compact_kernel = wave[idx]
+            
+            # compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
+            
+            # # Make it sparse
+            # conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
+            # telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
+                
+                
+
+            # step_convolution = 150
+            # data_wave_temp = wave
+            # tell_temp= telluric_spectrum
+            # telluric_spectrum_conv = 1. * np.ones(len(data_wave_temp))
+            # for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
+            #     if tell_temp[p]<0.999:
+            #         if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
+            #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
+            #         else:
+            #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
+            #         resolution_pixel    = Resolution_map[Order,index_pixel]
+            #         fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
+            #         sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
+            #         wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+            #         flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+            #         gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
+            #         gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
+            #         telluric_spectrum_conv[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
+            #     else:
+            #         telluric_spectrum_conv[p] = tell_temp[p]
 
 
         telluric_spectrum_interp=np.empty(len(data_wave))
@@ -381,6 +478,8 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
     timer_start =time.time()
     time_spectrum=0
     time_conv=0
+    time_co_m=0
+    time_bin=0
     
 	##################################
 	####    Constants and Inputs  ####
@@ -390,6 +489,7 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
     R     = 3000000 # model resolution
 
     c     = 299792458.0                 # [m*s^-1]
+    c_km_s = c/1000
     NA    = 6.02214086e+23              # [mol^-1]
     k_b   = 1.3806503e-23               # [J*K^-1] = [kg*m^2*s^-2]
     c2    = 1.43880285                  # c*h/k in [cm*K]
@@ -436,7 +536,7 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
             Epp                     = hitran_database['Epp'][(wave_wavenumber_selected[-1] < hitran_database['wave_number']) &  (hitran_database['wave_number'] < wave_wavenumber_selected[0])]
             
             
-            	########################################################
+            ########################################################
             ####    Compute basic parameters for telluric model ####
             ########################################################
             
@@ -447,9 +547,9 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
                 hwhm_gaussian_hitran  = wave_number_hitran_rest / c * np.sqrt( 2. * NA * k_b * temp * np.log(2) / ( 10**-3 * M_mol) )
 
             
-            	####################################
+            ####################################
             ####    Compute telluric model  ####
-            	####################################
+            ####################################
 
             if len(wave_number_hitran_rest)!=0:
                 
@@ -476,9 +576,9 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
         
 
             
-        	######################################
-        	####    Convolution and binning   ####
-        	######################################
+        ######################################
+        ####    Convolution and binning   ####
+        ######################################
         start_conv = time.time()
         if np.min(telluric_spectrum)==1:
             telluric_spectrum_interp=np.ones(len(data_wave))  
@@ -494,38 +594,146 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
                 gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
                 telluric_spectrum_conv = np.convolve(telluric_spectrum,gaussian_psf_norm,mode='same')                        
             else:
-                step_convolution = 150
-                data_wave_temp = wave
-                tell_temp= telluric_spectrum
-                telluric_spectrum_conv = 1. * np.ones(len(data_wave_temp))
-                for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
-                    if tell_temp[p]<0.999:
-                        if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
-                            index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
-                        else:
-                            index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
-                        resolution_pixel    = Resolution_map[Order,index_pixel]
-                        if np.isnan(resolution_pixel):
-                            resolution_pixel    = np.nanmin(Resolution_map[Order])
-        
-                        fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
-                        sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
-                        wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-                        flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-                        gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
-                        gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
-                        telluric_spectrum_conv[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
-                    else:
-                        telluric_spectrum_conv[p] = tell_temp[p]
                 
+                start_co_m = time.time()
+
+
+                spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
+                f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+
+                fwhm = c_km_s/f(wave)
+                expo = np.ones(len(fwhm))*2.0
+
+                shape0 = spectrum.shape
+
+                fwhm = fwhm.ravel()
+                expo = expo.ravel()
+                data_wave_temp = wave.ravel()
+                spectrum = spectrum.ravel()
+
+                ww = np.zeros_like(spectrum)
+                sp2 = np.zeros_like(spectrum)
+
+                range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
+                range_scan = int(np.ceil(range_scan))
+                
+                ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
+
+                for offset in range(-range_scan,range_scan):
+                    dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
+                    w = supergauss(dv, ew, expo)
+                    sp2+=np.roll(spectrum,offset)*w
+                    ww+=w
+
+                sp2/=ww
+                
+                # fwhm = fwhm.reshape(shape0)
+                # expo = expo.reshape(shape0)
+                # data_wave_temp = data_wave_temp.reshape(shape0)
+                # spectrum = spectrum.reshape(shape0)
+                telluric_spectrum_conv = sp2.reshape(shape0)
+                end_co_m = time.time()
+
+                
+                # # def gaussianfit(x,c,a,x0,sigma):
+                # #     "function of a gaussian"
+                # #     #a=1./(sigma*np.sqrt(2*np.pi))
+                # #     return c+a*np.exp(-0.5*np.abs((x-x0)/(sigma))**2)
+                # # from lmfit import Model
+                # # gmodel = Model(gaussianfit)        
+                # # params = Parameters()
+                # # params.add('c',   value= 1, vary=True  )
+                # # params.add('a',   value= -0.1, vary=True  )
+                # # params.add('x0',   value= wave[ind_test], vary=True  )
+                # # params.add('sigma',   value= fwhm[ind_test]/(2*np.sqrt(2*np.log(2))),  min=0., vary=True  )
+
+                # # result_E = gmodel.fit(sp2[ind_test-1000:ind_test+1000], params, x=wave[ind_test-1000:ind_test+1000], )
+                # # print(result_E.fit_report())
+
+                
+
+
+                # start_co_m = time.time()
+
+
+                # #Antoine
+                # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+                # def fct_ker(w, w_center):
+                #     res = f(w_center)                
+                #     fwhm = w_center/res
+                #     sigma = fast_conv.fwhm2sigma(fwhm)
+    
+                #     return fast_conv.gaussians(w, w_center, sigma)
+
+                # idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
+                
+                # data_wave_temp = wave[idx_pad:-idx_pad]
+
+                
+
+                # idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
+                # offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
+                # idx = idx_grid[None, :] + offset_idx[:, None]
+                # grid_compact_kernel = wave[idx]
+                
+                # compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
+                
+                # # Make it sparse
+                # conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
+                # telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
+                # end_co_m = time.time()
+                
+                
+                # result_A = gmodel.fit(telluric_spectrum_conv_test[ind_test-1000:ind_test+1000], params, x=data_wave_temp[ind_test-1000:ind_test+1000], )
+                
+                # start_co_m = time.time()
+                # convolution_matrix = fast_conv.get_c_matrix(fct_ker, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]), thresh=1e-6)
+                # end_co_m = time.time()
+
+                # telluric_spectrum_conv = convolution_matrix.dot(telluric_spectrum)
+                
+                time_co_m = np.add(time_co_m,end_co_m-start_co_m)
+               
+                # step_convolution = 150
+                # data_wave_temp = wave
+                # tell_temp= telluric_spectrum
+                # telluric_spectrum_conv_org = 1. * np.ones(len(data_wave_temp))
+                # sigs=[]
+                # for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
+                #     if tell_temp[p]<0.999:
+                #         if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
+                #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
+                #         else:
+                #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
+                #         resolution_pixel    = Resolution_map[Order,index_pixel]
+                #         if np.isnan(resolution_pixel):
+                #             resolution_pixel    = np.nanmin(Resolution_map[Order])
+        
+                #         fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
+                #         sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
+                #         wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+                #         sigs.append(int(np.ceil(4*sigma_angstrom/step)))
+                #         flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+                #         gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
+                #         gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
+                #         telluric_spectrum_conv_org[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
+                #     else:
+                #         telluric_spectrum_conv_org[p] = tell_temp[p]
+                
+            end_conv = time.time()
+
+            start_bin = time.time()
+
                     
             telluric_spectrum_interp=np.empty(len(data_wave))
             Dl = np.concatenate(([np.diff(data_wave)[0]],np.diff(data_wave)))/2.
             for i in range(len(data_wave)):
                 telluric_spectrum_interp[i] = np.mean(telluric_spectrum_conv[np.searchsorted(data_wave_temp,data_wave[i]-Dl[i]):np.searchsorted(data_wave_temp,data_wave[i]+Dl[i])])#*step
 
-        end_conv = time.time()
+            end_bin = time.time()
+
         time_conv = np.add(time_conv,end_conv-start_conv)
+        time_bin  = np.add(time_bin,end_bin-start_bin)
         
         
             
@@ -537,9 +745,11 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
     
     timer_end =time.time()
     print('-------------------')
-    print('Spectrum time    : ',np.round(time_spectrum/60.,2))
-    print('Convolution time : ',np.round(time_conv/60.,2))
-    print('Total time       : ',np.round((timer_end-timer_start)/60.,2))
+    print('Spectrum time            : ',np.round(time_spectrum/60.,2))
+    print('Convolution time         : ',np.round(time_conv/60.,2))
+    print('Conv matrix time         : ',np.round(time_co_m/60.,2))
+    print('Binning time             : ',np.round(time_bin/60.,2))
+    print('Full range spectrum time : ',np.round((timer_end-timer_start)/60.,2))
     return telluric_spectrum_interp_ord
 
 def open_resolution_map(instrument,time_science,ins_mode,bin_x=2):
@@ -893,9 +1103,12 @@ def Run_ATC(Input,options):
 
 def Run_ATC_files(Input,options):
     for i in range(len(Input)):
+        time_per_file=time.time()
         output_ATC= Run_ATC(Input[i],options)
         for save_type in options[3]:
             save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type=save_type, save_location=options[2])
+        print('Total time             : ',np.round((time.time()-time_per_file)/60.,2))
+
     return
 
 

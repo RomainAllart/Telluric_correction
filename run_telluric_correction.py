@@ -15,7 +15,7 @@ import telluric_correction as ATC
 import multiprocessing
 
 
-files_drs=glob.glob('Telluric_corrected_files/r.NIRPS.*S2D_BLAZE_A.fits')
+files_drs=glob.glob('Telluric_corrected_files/example/r.NIRPS.*S2D_BLAZE_A.fits')
 files_drs.sort()
 
 instrument = 'NIRPS_drs'

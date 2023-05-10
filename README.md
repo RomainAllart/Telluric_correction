@@ -3,8 +3,9 @@ Automatic telluric correction for ESPRESSO and NIRPS ESO pipelines. This is a st
 
 To summarize, the goal is to have an automatic code that is able to correct astrophysical spectra from the main absorber of the Earth's atmosphere. It consists of a radiative transfer model with one atmospheric layer. The produced telluric spectrum is convolved at the instrumental resolution and a least-square minimization is performed on carefully selected lines to optimize the parameters of the model. It is currently adapted to ESPRESSO and NIRPS but will be extended to other instruments in the near future. 
 
-
 ## The code is fully running on Python 3.9 and requires the following packages:
+
+Users have to clone the repository to their personal directory and make sure that the following libraries are installed.
 
 - numpy
 - os
@@ -16,7 +17,6 @@ To summarize, the goal is to have an automatic code that is able to correct astr
 - functools
 - warning
 
-Users have to clone the repository to their personal directory and make sure that the aforementioned libraries are installed.
 
 
 ## Structure of the repository:

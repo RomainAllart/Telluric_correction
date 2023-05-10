@@ -8,6 +8,7 @@ Created on Mon Jan 27 15:12:07 2020
 
 import numpy as np
 import os
+import sys
 from astropy.io import fits
 from multiprocessing import Pool
 from lmfit import minimize, Parameters, report_fit, fit_report
@@ -17,13 +18,25 @@ from scipy.interpolate import interp1d
 from lmfit import Model
 from functools import partial
 import warnings
-import fast_convolution as fast_conv
+# import fast_convolution as fast_conv
 # from scipy import constants
 import numexpr as ne
+import logging
+
 warnings.filterwarnings("ignore")
 
+logger = logging.getLogger('Telluric')
+# Tu peux mettre le nom que tu veux
+logger.setLevel(logging.INFO)
+# C'est le niveau de log min que tu veux voir à l'écran
 
-a=time.time()
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# Ca va te formatter tous les logs avec la date, l’heure, le niveau de log et le message
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+
 
 def NIRPS_resolution_temp(ins_mode):
     if ins_mode=='HA':
@@ -744,12 +757,12 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
     telluric_spectrum_interp_ord    = np.array(telluric_spectrum_interp_ord)
     
     timer_end =time.time()
-    print('-------------------')
-    print('Spectrum time            : ',np.round(time_spectrum/60.,2))
-    print('Convolution time         : ',np.round(time_conv/60.,2))
-    print('Conv matrix time         : ',np.round(time_co_m/60.,2))
-    print('Binning time             : ',np.round(time_bin/60.,2))
-    print('Full range spectrum time : ',np.round((timer_end-timer_start)/60.,2))
+    logger.info('-------------------')
+    logger.info('Spectrum time            : %s',np.round(time_spectrum/60.,2))
+    logger.info('Convolution time         : %s',np.round(time_conv/60.,2))
+    logger.info('Conv matrix time         : %s',np.round(time_co_m/60.,2))
+    logger.info('Binning time             : %s',np.round(time_bin/60.,2))
+    logger.info('Full range spectrum time : %s',np.round((timer_end-timer_start)/60.,2))
     return telluric_spectrum_interp_ord
 
 def open_resolution_map(instrument,time_science,ins_mode,bin_x=2):
@@ -826,7 +839,7 @@ def open_resolution_map(instrument,time_science,ins_mode,bin_x=2):
                 instrumental_function = fits.open('Static_resolution/NIRPS/r.NIRPS.2022-11-28T20:47:51.815_RESOLUTION_MAP.fits')
                 period = 'HE_COMM7'        
 
-        print(period)
+        logger.info(period)
     resolution_map=instrumental_function[1].data
     instrumental_function.close()
     return resolution_map
@@ -910,7 +923,7 @@ def save_file(path,instrument,flux_corr,flux_err_corr,telluric,result_fit,molecu
 
 def Run_ATC(Input,options):
     
-    print(Input)
+    logger.info(Input)
 
     
     instrument=options[0]
@@ -1087,13 +1100,14 @@ def Run_ATC(Input,options):
         #Fit minimization
         result_fit = minimize(fit_telluric_model, params, args=(rvs,[data_wave,data_flux,hitran_database_lines_model_molecules[m],qt_file_molecules[m],hitran_database_lines_fit_molecules[m],Resolution_instrumental_map,N_x_molecules[m],M_mol_molecules[m],molecules[m],instrument]))
         result_fit_molecules[m] = result_fit
-        report_fit(result_fit)
+        logger.info('%s',fit_report(result_fit))
         
         timer_end=time.time()
-        print('-------------------')
-        print('Fitting time for '+molecules[m]+' : ',np.round((timer_end-timer_start)/60.,2))
-        print('-------------------')
-        print('')
+        logger.info('')
+        logger.info('-------------------')
+        logger.info('Fitting time for %s : %s',molecules[m],np.round((timer_end-timer_start)/60.,2))
+        logger.info('-------------------')
+        logger.info('')
     
     #Apply telluric correction to the full spectrum
     telluric_spectrum = compute_telluric_model(result_fit_molecules,molecules,M_mol_molecules,N_x_molecules,hitran_database_full_range_molecules,qt_file_molecules,data_wave,np.arange(len(data_wave)),Resolution_instrumental_map,instrument)
@@ -1107,7 +1121,7 @@ def Run_ATC_files(Input,options):
         output_ATC= Run_ATC(Input[i],options)
         for save_type in options[3]:
             save_file(output_ATC[0],output_ATC[1],output_ATC[2]/output_ATC[4],output_ATC[3]/output_ATC[4],output_ATC[4],output_ATC[5],output_ATC[6],save_type=save_type, save_location=options[2])
-        print('Total time             : ',np.round((time.time()-time_per_file)/60.,2))
+        logger.info('Total time             : %s',np.round((time.time()-time_per_file)/60.,2))
 
     return
 

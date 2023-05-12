@@ -1116,6 +1116,9 @@ def Run_ATC(Input,options):
 
 
 def Run_ATC_files(Input,options):
+
+    logger.info('USING A TOTAL OF %s THREADS TO PERFORM TELLURIC CORRECTION', ne.nthreads)
+
     for i in range(len(Input)):
         time_per_file=time.time()
         output_ATC= Run_ATC(Input[i],options)

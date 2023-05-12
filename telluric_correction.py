@@ -384,6 +384,7 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
             
             ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
 
+            logger.info("range_scan = (-%i,%i,1)", range_scan, range_scan)
             for offset in range(-range_scan,range_scan):
                 dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
                 w = supergauss(dv, ew, expo)

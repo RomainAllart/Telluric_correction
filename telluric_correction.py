@@ -151,7 +151,6 @@ def supergauss(x, ew, expo):
     #Expression corrige avec la logique de depary
     str_exp = 'exp(-0.5 * abs(x / ew) ** expo)'
 
-
     return ne.evaluate(str_exp)
 
 def compute_CCF(l,spe,mask_ll,mask_W,RV_table,bin_width,normalize,excluded_ll,excluded_range,instrument='HARPS',rescale=0):
@@ -386,8 +385,7 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
             
             for offset in range(-range_scan,range_scan):
                 dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
-                #w = supergauss(dv, ew, expo)
-                w = ww+1
+                w = supergauss(dv, ew, expo)
                 sp2+=np.roll(spectrum,offset)*w
                 ww+=w
 

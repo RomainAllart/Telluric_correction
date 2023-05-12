@@ -20,9 +20,10 @@ files_drs.sort()
 
 instrument = 'NIRPS_drs'
 molecules = ['H2O','O2','CO2','CH4'] # molecules to consider
-save_path='Telluric_corrected_files/' # directory to save files
+save_path= 'Telluric_corrected_files/' # directory to save files
 save_options = ['DRS', 'Extended', 'Telluric'] # Files to be saved
+nthreads = max(1,multiprocessing.cpu_count()-2)
 
 if __name__ == "__main__":
-    ATC.multiprocessing_ATC(files_drs,[instrument, molecules, save_path, save_options],nthreads=max(1,multiprocessing.cpu_count()-2))
+    ATC.multiprocessing_ATC(files_drs,[instrument, molecules, save_path, save_options, nthreads])
 

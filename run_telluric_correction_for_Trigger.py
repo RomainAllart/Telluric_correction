@@ -33,5 +33,6 @@ else:
 file = args['file']
 save_path = '/'.join(file.split('/')[:-1])+'/'
 save_options = ['DRS', 'Telluric'] # Files to be saved. Options are ['DRS', 'Extended', 'Telluric']
+nthreads = 1
 
-ATC.Run_ATC_files([file], options=[instrument_option, molecules, save_path, save_options])
+ATC.Run_ATC_files([file], options=[instrument_option, molecules, save_path, save_options, nthreads])

@@ -20,6 +20,9 @@ from functools import partial
 import warnings
 # import fast_convolution as fast_conv
 # from scipy import constants
+# Set number of used threads to 1, so that numexpr used in telluric_correction.py does not interfere with the Trigger multiprocessing
+os.environ['NUMEXPR_MAX_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
 import numexpr as ne
 ne.set_num_threads(1)
 import logging

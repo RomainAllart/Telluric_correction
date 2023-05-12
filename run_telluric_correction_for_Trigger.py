@@ -7,9 +7,9 @@ Created on 14.03.2023
 """
 import os
 
-# Set number of used threads to 1, so that numexpr used in telluric_correction.py does not interfere with the Trigger multiprocessing
-os.environ['NUMEXPR_MAX_THREADS'] = '1'
-os.environ['NUMEXPR_NUM_THREADS'] = '1'
+# # Set number of used threads to 1, so that numexpr used in telluric_correction.py does not interfere with the Trigger multiprocessing
+# os.environ['NUMEXPR_MAX_THREADS'] = '1'
+# os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 import argparse
 import telluric_correction as ATC

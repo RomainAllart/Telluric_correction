@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 from lmfit import Model
 from functools import partial
 import warnings
-# import fast_convolution as fast_conv
+import fast_convolution as fast_conv
 # from scipy import constants
 import numexpr as ne
 import logging
@@ -361,86 +361,86 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
         else:
 
 
-            spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
-            f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+            # spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
+            # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
 
-            fwhm = c_km_s/f(wave)
-            expo = np.ones(len(fwhm))*2.0
+            # fwhm = c_km_s/f(wave)
+            # expo = np.ones(len(fwhm))*2.0
 
-            shape0 = spectrum.shape
+            # shape0 = spectrum.shape
 
-            fwhm = fwhm.ravel()
-            expo = expo.ravel()
-            data_wave_temp = wave.ravel()
-            spectrum = spectrum.ravel()
+            # fwhm = fwhm.ravel()
+            # expo = expo.ravel()
+            # data_wave_temp = wave.ravel()
+            # spectrum = spectrum.ravel()
 
-            ww = np.zeros_like(spectrum)
-            sp2 = np.zeros_like(spectrum)
+            # ww = np.zeros_like(spectrum)
+            # sp2 = np.zeros_like(spectrum)
 
-            range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
-            range_scan = int(np.ceil(range_scan))
+            # range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
+            # range_scan = int(np.ceil(range_scan))
             
-            ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
+            # ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
             
-            for offset in range(-range_scan,range_scan):
-                dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
-                w = supergauss(dv, ew, expo)
-                sp2+=np.roll(spectrum,offset)*w
-                ww+=w
+            # for offset in range(-range_scan,range_scan):
+            #     dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
+            #     w = supergauss(dv, ew, expo)
+            #     sp2+=np.roll(spectrum,offset)*w
+            #     ww+=w
 
-            sp2/=ww
+            # sp2/=ww
             
-            telluric_spectrum_conv = sp2.reshape(shape0)
+            # telluric_spectrum_conv = sp2.reshape(shape0)
 
 
             #Antoine
-            # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
-            # def fct_ker(w, w_center):
-            #     res = f(w_center)                
-            #     fwhm = w_center/res
-            #     sigma = fast_conv.fwhm2sigma(fwhm)
+            f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+            def fct_ker(w, w_center):
+                res = f(w_center)                
+                fwhm = w_center/res
+                sigma = fast_conv.fwhm2sigma(fwhm)
 
-            #     return fast_conv.gaussians(w, w_center, sigma)
+                return fast_conv.gaussians(w, w_center, sigma)
 
-            # idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
+            idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
             
-            # data_wave_temp = wave[idx_pad:-idx_pad]
+            data_wave_temp = wave[idx_pad:-idx_pad]
 
             
 
-            # idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
-            # offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
-            # idx = idx_grid[None, :] + offset_idx[:, None]
-            # grid_compact_kernel = wave[idx]
+            idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
+            offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
+            idx = idx_grid[None, :] + offset_idx[:, None]
+            grid_compact_kernel = wave[idx]
             
-            # compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
+            compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
             
-            # # Make it sparse
-            # conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
-            # telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
+            # Make it sparse
+            conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
+            telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
                 
                 
 
-            # step_convolution = 150
-            # data_wave_temp = wave
-            # tell_temp= telluric_spectrum
-            # telluric_spectrum_conv = 1. * np.ones(len(data_wave_temp))
-            # for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
-            #     if tell_temp[p]<0.999:
-            #         if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
-            #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
-            #         else:
-            #             index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
-            #         resolution_pixel    = Resolution_map[Order,index_pixel]
-            #         fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
-            #         sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
-            #         wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-            #         flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
-            #         gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
-            #         gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
-            #         telluric_spectrum_conv[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
-            #     else:
-            #         telluric_spectrum_conv[p] = tell_temp[p]
+            step_convolution = 150
+            data_wave_temp = wave
+            tell_temp= telluric_spectrum
+            telluric_spectrum_conv = 1. * np.ones(len(data_wave_temp))
+            for p in range(len(data_wave_temp))[step_convolution:-step_convolution]:
+                if tell_temp[p]<0.999:
+                    if np.searchsorted(data_wave,data_wave_temp[p-step_convolution]) >= len(data_wave):
+                        index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])-1
+                    else:
+                        index_pixel     = np.searchsorted(data_wave,data_wave_temp[p-step_convolution])
+                    resolution_pixel    = Resolution_map[Order,index_pixel]
+                    fwhm_angstrom_pixel = data_wave_temp[p]/resolution_pixel
+                    sigma_angstrom      = fwhm_angstrom_pixel / 2.3548
+                    wave_psf            = data_wave_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+                    flux_psf            = tell_temp[p-int(np.ceil(4*sigma_angstrom/step)):p+int(np.ceil(4*sigma_angstrom/step))+1]
+                    gaussian_psf        = np.multiply( np.array(1. / (sigma_angstrom * np.sqrt( 2. * np.pi ) ) ) , np.exp( - np.true_divide( ( wave_psf - data_wave_temp[p] ) **2. , np.array( 2. * sigma_angstrom ** 2. ) ) ) )
+                    gaussian_psf_norm   = np.true_divide(gaussian_psf,np.array(np.sum(gaussian_psf)))
+                    telluric_spectrum_conv[p] = np.convolve(flux_psf,gaussian_psf_norm,mode='same')[int(len(wave_psf)/2)]
+                else:
+                    telluric_spectrum_conv[p] = tell_temp[p]
 
 
         telluric_spectrum_interp=np.empty(len(data_wave))
@@ -606,44 +606,44 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
                 telluric_spectrum_conv = np.convolve(telluric_spectrum,gaussian_psf_norm,mode='same')                        
             else:
                 
-                start_co_m = time.time()
+                # start_co_m = time.time()
 
 
-                spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
-                f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+                # spectrum = telluric_spectrum#np.ones(len(telluric_spectrum)) #telluric_spectrum
+                # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
 
-                fwhm = c_km_s/f(wave)
-                expo = np.ones(len(fwhm))*2.0
+                # fwhm = c_km_s/f(wave)
+                # expo = np.ones(len(fwhm))*2.0
 
-                shape0 = spectrum.shape
+                # shape0 = spectrum.shape
 
-                fwhm = fwhm.ravel()
-                expo = expo.ravel()
-                data_wave_temp = wave.ravel()
-                spectrum = spectrum.ravel()
+                # fwhm = fwhm.ravel()
+                # expo = expo.ravel()
+                # data_wave_temp = wave.ravel()
+                # spectrum = spectrum.ravel()
 
-                ww = np.zeros_like(spectrum)
-                sp2 = np.zeros_like(spectrum)
+                # ww = np.zeros_like(spectrum)
+                # sp2 = np.zeros_like(spectrum)
 
-                range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
-                range_scan = int(np.ceil(range_scan))
+                # range_scan =  np.max(fwhm)/(np.median(np.gradient(data_wave_temp)/data_wave_temp)*c_km_s)*3
+                # range_scan = int(np.ceil(range_scan))
                 
-                ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
+                # ew = (fwhm / 2) / (2 * np.log(2)) ** (1 / expo)
 
-                for offset in range(-range_scan,range_scan):
-                    dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
-                    w = supergauss(dv, ew, expo)
-                    sp2+=np.roll(spectrum,offset)*w
-                    ww+=w
+                # for offset in range(-range_scan,range_scan):
+                #     dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
+                #     w = supergauss(dv, ew, expo)
+                #     sp2+=np.roll(spectrum,offset)*w
+                #     ww+=w
 
-                sp2/=ww
+                # sp2/=ww
                 
-                # fwhm = fwhm.reshape(shape0)
-                # expo = expo.reshape(shape0)
-                # data_wave_temp = data_wave_temp.reshape(shape0)
-                # spectrum = spectrum.reshape(shape0)
-                telluric_spectrum_conv = sp2.reshape(shape0)
-                end_co_m = time.time()
+                # # fwhm = fwhm.reshape(shape0)
+                # # expo = expo.reshape(shape0)
+                # # data_wave_temp = data_wave_temp.reshape(shape0)
+                # # spectrum = spectrum.reshape(shape0)
+                # telluric_spectrum_conv = sp2.reshape(shape0)
+                # end_co_m = time.time()
 
                 
                 # # def gaussianfit(x,c,a,x0,sigma):
@@ -664,35 +664,35 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
                 
 
 
-                # start_co_m = time.time()
+                start_co_m = time.time()
 
 
-                # #Antoine
-                # f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
-                # def fct_ker(w, w_center):
-                #     res = f(w_center)                
-                #     fwhm = w_center/res
-                #     sigma = fast_conv.fwhm2sigma(fwhm)
+                #Antoine
+                f=interp1d(data_wave,Resolution_map[Order],kind='cubic',fill_value='extrapolate')
+                def fct_ker(w, w_center):
+                    res = f(w_center)                
+                    fwhm = w_center/res
+                    sigma = fast_conv.fwhm2sigma(fwhm)
     
-                #     return fast_conv.gaussians(w, w_center, sigma)
+                    return fast_conv.gaussians(w, w_center, sigma)
 
-                # idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
+                idx_pad = int(np.ceil(np.max(c_km_s/f(wave))/(np.median(np.gradient(wave)/wave)*c_km_s)*3))  # Maximum shift in grid index for the kernel
                 
-                # data_wave_temp = wave[idx_pad:-idx_pad]
+                data_wave_temp = wave[idx_pad:-idx_pad]
 
                 
 
-                # idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
-                # offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
-                # idx = idx_grid[None, :] + offset_idx[:, None]
-                # grid_compact_kernel = wave[idx]
+                idx_grid = np.arange(len(data_wave_temp), dtype=int) + idx_pad
+                offset_idx = np.arange(-idx_pad, idx_pad+1, dtype=int)
+                idx = idx_grid[None, :] + offset_idx[:, None]
+                grid_compact_kernel = wave[idx]
                 
-                # compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
+                compact_matrix_alt = fct_ker(grid_compact_kernel,data_wave_temp)
                 
-                # # Make it sparse
-                # conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
-                # telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
-                # end_co_m = time.time()
+                # Make it sparse
+                conv_matrix_alt_2 = fast_conv.get_c_matrix(compact_matrix_alt, wave, bounds=(data_wave_temp[0],data_wave_temp[-1]))
+                telluric_spectrum_conv = conv_matrix_alt_2.dot(telluric_spectrum)
+                end_co_m = time.time()
                 
                 
                 # result_A = gmodel.fit(telluric_spectrum_conv_test[ind_test-1000:ind_test+1000], params, x=data_wave_temp[ind_test-1000:ind_test+1000], )

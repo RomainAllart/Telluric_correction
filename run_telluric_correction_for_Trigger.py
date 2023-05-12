@@ -5,9 +5,13 @@ Created on 14.03.2023
 
 @author: XDumusque
 """
-
+import os
 import argparse
 import telluric_correction as ATC
+
+# Set number of used threads to 1, so that numexpr used in telluric_correction.py does not interfere with the Trigger multiprocessing
+os.environ['NUMEXPR_MAX_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 parser = argparse.ArgumentParser()
 
@@ -33,6 +37,5 @@ else:
 file = args['file']
 save_path = '/'.join(file.split('/')[:-1])+'/'
 save_options = ['DRS', 'Telluric'] # Files to be saved. Options are ['DRS', 'Extended', 'Telluric']
-nthreads = 1
 
-ATC.Run_ATC_files([file], options=[instrument_option, molecules, save_path, save_options, nthreads])
+ATC.Run_ATC_files([file], options=[instrument_option, molecules, save_path, save_options])

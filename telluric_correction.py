@@ -1114,6 +1114,15 @@ def Run_ATC(Input,options):
 
 
 def Run_ATC_files(Input,options):
+
+    nthreads = options[-1]
+
+    if nthreads==1:
+        # fix those environement variables to 1, to prevent numexp to use several threads when launching using the Trigger
+        os.environ['NUMEXPR_MAX_THREADS'] = '1'
+        os.environ['NUMEXPR_NUM_THREADS'] = '1'
+    import numexpr as ne
+
     for i in range(len(Input)):
         time_per_file=time.time()
         output_ATC= Run_ATC(Input[i],options)
@@ -1124,17 +1133,13 @@ def Run_ATC_files(Input,options):
     return
 
 
-def multiprocessing_ATC(Input,options,nthreads=1):
+def multiprocessing_ATC(Input,options):
+
+    nthreads = options[-1]
+
     chunks = np.array_split(Input,nthreads)
     # print(chunks)
     pool = Pool(processes=nthreads)
-
-    if nthreads==1
-        # fix those environement variables to 1, to prevent numexp to use several threads when launching using the Trigger
-        os.environ['NUMEXPR_MAX_THREADS'] = '1'
-        os.environ['NUMEXPR_NUM_THREADS'] = '1'
-    import numexpr as ne
-    
     
     fixed_param=partial(Run_ATC_files,options=options)
     # print(options)

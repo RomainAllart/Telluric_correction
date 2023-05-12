@@ -20,11 +20,7 @@ from functools import partial
 import warnings
 # import fast_convolution as fast_conv
 # from scipy import constants
-# Set number of used threads to 1, so that numexpr used in telluric_correction.py does not interfere with the Trigger multiprocessing
-os.environ['NUMEXPR_MAX_THREADS'] = 1
-os.environ['NUMEXPR_NUM_THREADS'] = 1
 import numexpr as ne
-ne.set_num_threads(1)
 import logging
 
 warnings.filterwarnings("ignore")
@@ -39,7 +35,6 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 # Ca va te formatter tous les logs avec la date, l’heure, le niveau de log et le message
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-
 
 
 def NIRPS_resolution_temp(ins_mode):

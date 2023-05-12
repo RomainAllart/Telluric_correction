@@ -387,7 +387,7 @@ def fit_telluric_model(Parameters,rv,data=['wave','flux','database','qt_list','l
             for offset in range(-range_scan,range_scan):
                 dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
                 #w = supergauss(dv, ew, expo)
-                w = ww.copy()
+                w = ww+1
                 sp2+=np.roll(spectrum,offset)*w
                 ww+=w
 
@@ -636,7 +636,7 @@ def compute_telluric_model(Fitted_Parameters,Molecules,M_mol_molecules,N_x_molec
                 for offset in range(-range_scan,range_scan):
                     dv = (data_wave_temp/np.roll(data_wave_temp,offset)-1)*c_km_s
                     #w = supergauss(dv, ew, expo)
-                    w = ww.copy()
+                    w = ww+1
                     sp2+=np.roll(spectrum,offset)*w
                     ww+=w
 

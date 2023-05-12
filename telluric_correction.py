@@ -21,7 +21,7 @@ import warnings
 # import fast_convolution as fast_conv
 # from scipy import constants
 import numexpr as ne
-#ne.set_vml_num_threads(1)
+ne.set_vml_num_threads(1)
 import logging
 
 warnings.filterwarnings("ignore")
